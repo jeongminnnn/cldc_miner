@@ -1,0 +1,10 @@
+{
+    "background_color": "white",
+    "display": "standalone",
+    "icons": [{"src": "/assets/icon512.png", "sizes": "512x512", "type": "image/png"}, {"src": "/assets/icon192.png", "sizes": "192x192", "type": "image/png"}],
+    "name": "247and Miner",
+    "scope": "/",
+    "short_name": "247and Miner",
+    "start_url": "/app.html",
+    "theme_color": "white"
+}

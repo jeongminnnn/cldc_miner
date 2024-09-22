@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <link rel="shortcut icon" href="/assets/favicon.png">
+        <title>247and Miner</title>
+
+        <link rel="manifest" href="/manifest.json">
+        <meta charset="UTF-8"/>
+
+        <link rel="stylesheet" href="/app.css">
+        <style>
+            :root {
+                --main-point-color: #FE9E00;
+                --main-bg-color: #13171A;
+
+            }
+            body
+            {
+                background-color: var(--main-bg-color);
+                color: white;
+            }
+
+            main
+            {
+                display: flex;
+                justify-content: space-between;
+            }
+
+            label {
+                font-size: .8em;
+            }
+
+            input {
+                display: block;
+                width:  100%;
+                background-color: transparent;
+                border: none;
+                border-bottom: 1px solid #aaa;
+                border-radius: 0;
+                color: #eee;
+            }
+
+            .SocialLink
+            {
+                width: 50px;
+            }
+
+            #ReportPanel
+            {
+                padding: 1rem;
+                padding-left: 0px;
+                width: 100%;
+            }
+
+            #ReportBox
+            {
+                background-color: rgba(0,0,0,0.1);
+                color: #fff;
+                overflow: auto;
+                padding: 1rem;
+                width: 100%;
+            }
+
+            #Main_Send
+            {
+                background-color: var(--main-point-color);
+                color: white;
+                width: 100%;
+            }
+
+            #StatusBox
+            {
+                padding: 1rem;
+            }
+
+            #SettingBox
+            {
+                padding: 1rem;
+            }
+
+            #SocialLinks
+            {
+                display: flex;
+                justify-content: space-evenly;
+                padding: 1rem;
+            }
+            #SocialLinks a
+            {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 50px;
+                height: 50px;
+                background-color: var(--main-point-color);
+                border-radius: 50%;
+            }
+            #SocialLinks img
+            {
+                width: 60%;
+                filter: invert(1);
+            }
+
+            #StartStopButton
+            {
+                background-color: var(--main-point-color);
+                color: white;
+                width: 100%;
+            }
+        </style>
+
+        <script>
+            let _AccessToken;
+            let _MiningTimer;
+
+            window.onload = async () =>
+            {
+                // window
+                window.resizeTo(800, document.getElementById('ControlPanel').clientHeight + 42);
+
+                // ReportBox
+                document.getElementById('ReportBox').style.height = document.getElementById('ReportPanel').clientHeight - 32 + 'px';
+            }
+
+            async function CallBackendAPIFunction(FunctionName, BearerToken, BodyInJson)
+            {
+                // set APIURL
+                const APIURL = 'https://1vo50w24w5.execute-api.us-east-2.amazonaws.com/' + FunctionName;
+
+                // set Options
+                let Options = null;
+                if (BearerToken == null)
+                {
+                    if (BodyInJson == null) {Options = {method:'POST'}} else {Options = {method:'POST', body:JSON.stringify(BodyInJson)}}
+                }
+                else
+                {
+                    let HeadersInJson = {};
+                    HeadersInJson['Authorization'] = "Bearer " + BearerToken;
+
+                    if (BodyInJson == null) {Options = {method:'POST', headers:HeadersInJson}} else {Options = {method:'POST', headers:HeadersInJson, body:JSON.stringify(BodyInJson)}}
+                }
+
+                // call and set FetchResult
+                let FetchResult = null;
+                try {FetchResult = await fetch(APIURL, Options);} catch(Error) {return null;}
+
+                if (!FetchResult.ok)
+                    return null;
+
+                // follow up
+                return await FetchResult.json();
+            }
+
+            async function StartStopButton_onclick(ButtonText) {
+
+                if (ButtonText === 'Start') {
+
+                    // set _AccessToken
+                    const Result = await CallBackendAPIFunction('GetAccessToken', null, {"SN":document.getElementById('MinerSN').value, "PK":document.getElementById('MinerPK').value});
+                    _AccessToken = Result.AccessToken
+
+                    // set _MinerBalance
+                    const minerStatus = await CallBackendAPIFunction('GetMiner', null, {"AccessToken":_AccessToken})
+                    document.getElementById('ETCBalance').value = minerStatus.Balance / 1000000000000000000 + ' ETC';
+
+
+                    // Start API
+                    if(minerStatus.Status === 'Off') CallBackendAPIFunction('StartMining', null, {"AccessToken":_AccessToken})
+
+                    // start mining
+                    _MiningTimer = setInterval(Mine, 1000)
+                    _MiningBalance = setInterval(SetBalance, 60000)
+
+                    // update UI
+                    document.getElementById('StartStopButton').innerText = 'Stop';
+                    document.getElementById('ReportBox').innerHTML = 'Mining sarted...';
+
+                    // mining speed
+                    let miningSpeedVal = await CallBackendAPIFunction('GetSpeed', null, null)
+                    miningSpeedVal = (miningSpeedVal.MiningSpeed / 1000000000000000000) * 60
+                    document.getElementById('MiningSpeed').value = `${miningSpeedVal} ETC/Min`
+                }
+                else {
+                    // stop timer
+                    clearInterval(_MiningTimer)
+                    clearInterval(_MiningBalance)
+
+                    // stop api
+                    CallBackendAPIFunction('StopMining', null, {"AccessToken":_AccessToken})
+                        .then(data => {
+                            document.getElementById('ETCBalance').value = data.Balance / 1000000000000000000 + ' ETC'
+                        })
+                    
+
+                    // update UI
+                    document.getElementById('StartStopButton').innerText = 'Start';
+                    document.getElementById('ReportBox').innerHTML += '<br>Mining stopped';
+                }
+            }
+
+            function Mine() {
+
+                document.getElementById('ReportBox').innerHTML += '<br>Mined';
+            }   
+
+            async function SetBalance(){
+                const minerBal = await CallBackendAPIFunction('GetMiner', null, {"AccessToken":_AccessToken})
+                document.getElementById('ETCBalance').value = minerBal.Balance / 1000000000000000000 + ' ETC'
+            }
+
+        </script>
+    </head>
+    <body>
+        <main>
+            <div id="ControlPanel" style="width: 300px;"> 
+                <div id="SettingBox">
+                    <div class="mb-3">
+                        <label>S/N</label>
+                        <input id="MinerSN" type="text" placeholder="Type your S/N" >
+                    </div>
+                    <div class="mb-3">
+                        <label>Private Key</label>
+                        <input id="MinerPK" type="text" placeholder="Type your Private Key">
+                    </div>
+                    <button id="StartStopButton" type="button" class="btn" onclick="StartStopButton_onclick(this.innerText);">Start</button>
+                </div>
+                <div id="StatusBox">
+                    <div class="mb-3">
+                        <label>Speed</label>
+                        <input id="MiningSpeed" type="text" placeholder="null" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label>Total ETC</label>
+                        <input id="ETCBalance" type="text" placeholder="null" readonly>
+                    </div>
+                </div>
+            </div>
+            <div id="ReportPanel">
+                <div id="ReportBox"></div>
+            </div>
+        </main>
+    </body>
+</html>
